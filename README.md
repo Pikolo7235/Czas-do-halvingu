@@ -1,34 +1,55 @@
-# Czas-do-halvingu
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-/**
- * @title BTCHalvingCountdown
- * @dev Kontrakt obliczający czas pozostały do szacowanego halvingu BTC w 2028 roku.
- */
-contract BTCHalvingCountdown {
-    // Szacowana data halvingu: 22 marca 2028, 12:00:00 UTC
-    // Timestamp: 1837252800 (możesz go zaktualizować przed wdrożeniem)
-    uint256 public immutable targetTimestamp = 1837252800;
+// Interfejs do pobierania danych z Chainlink
+interface AggregatorV3Interface {
+    function latestRoundData() external view returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    );
+}
 
-    /**
-     * @dev Zwraca czas pozostały do halvingu w sekundach.
-     * Jeśli czas już minął, zwraca 0.
-     */
-    function getSecondsRemaining() public view returns (uint256) {
-        if (block.timestamp >= targetTimestamp) {
-            return 0;
-        }
-        return targetTimestamp - block.timestamp;
+contract RealBTCHalvingCountdown {
+    // Adres feedu Chainlink dla BTC Block Height (przykładowy dla sieci testowej/mainnetu)
+    // Uwaga: Należy sprawdzić aktualny adres w dokumentacji Chainlink dla danej sieci.
+    AggregatorV3Interface internal blockHeightFeed;
+
+    uint256 public constant HALVING_BLOCK = 1050000; // Blok halvingu w 2028 roku
+    uint256 public constant AVG_BLOCK_TIME = 600;   // Średnio 600 sekund (10 minut) na blok
+
+    constructor(address _feedAddress) {
+        blockHeightFeed = AggregatorV3Interface(_feedAddress);
     }
 
     /**
-     * @dev Zwraca czytelny format: dni, godziny, minuty, sekundy.
+     * @dev Pobiera aktualną wysokość bloku BTC z wyroczni.
+     */
+    function getBtcBlockHeight() public view returns (uint256) {
+        (, int256 height, , , ) = blockHeightFeed.latestRoundData();
+        return uint256(height);
+    }
+
+    /**
+     * @dev Szacuje sekundy pozostałe do halvingu na podstawie brakujących bloków.
+     */
+    function getSecondsRemaining() public view returns (uint256) {
+        uint256 currentBlock = getBtcBlockHeight();
+        if (currentBlock >= HALVING_BLOCK) {
+            return 0;
+        }
+        return (HALVING_BLOCK - currentBlock) * AVG_BLOCK_TIME;
+    }
+
+    /**
+     * @dev Zwraca czytelny format odliczania.
      */
     function getFullCountdown() public view returns (
-        uint256 daysLeft, 
-        uint256 hoursLeft, 
-        uint256 minutesLeft, 
+        uint256 daysLeft,
+        uint256 hoursLeft,
+        uint256 minutesLeft,
         uint256 secondsLeft
     ) {
         uint256 totalSeconds = getSecondsRemaining();
@@ -39,3 +60,4 @@ contract BTCHalvingCountdown {
         secondsLeft = totalSeconds % 1 minutes;
     }
 }
+
