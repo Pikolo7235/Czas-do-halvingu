@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC Halving Progress</title>
+    <script src="https://cloudflare.com"></script>
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background-color: #1e1e1e;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+            text-align: center;
+            border: 1px solid #f7931a;
+            width: 350px;
+        }
+        h1 { color: #f7931a; font-size: 1.5rem; margin-bottom: 5px; }
+        .chart-container {
+            position: relative;
+            margin: 20px auto;
+            height: 200px;
+            width: 200px;
+        }
+        .percentage-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #f7931a;
+        }
+        .countdown {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-top: 15px;
+        }
+        .num { font-size: 1.1rem; font-weight: bold; display: block; }
+        .unit { font-size: 0.65rem; color: #888; text-transform: uppercase; }
+        .block-info { color: #666; font-size: 0.8rem; margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; }
+        #loader { color: #f7931a; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>BTC Halving 2028</h1>
+    <div id="loader">Inicjalizacja...</div>
+    
+    <div id="content" style="display: none;">
+        <div class="chart-container">
+            <canvas id="progressChart"></canvas>
+            <div id="percentText" class="percentage-label">0%</div>
+        </div>
+
+        <div class="countdown">
+            <div><span class="num" id="days">0</span><span class="unit">Dni</span></div>
+            <div><span class="num" id="hours">0</span><span class="unit">Godz</span></div>
+            <div><span class="num" id="mins">0</span><span class="unit">Min</span></div>
+            <div><span class="num" id="secs">0</span><span class="unit">Sek</span></div>
+        </div>
+
+        <div class="block-info">
+            Blok: <span id="currentBlock">0</span> / 1,050,000
+        </div>
+    </div>
+</div>
+
+<script>
+    const CONTRACT_ADDRESS = "ADRES_TWOJEGO_KONTRAKTU"; 
+    const RPC_URL = "https://alchemy.com";
+    const START_BLOCK = 840000; // Blok ostatniego halvingu (kwiecień 2024)
+    const TARGET_BLOCK = 1050000;
+
+    const ABI = ["function getFormattedCountdown() view returns (tuple(uint256 totalSeconds, uint256 daysLeft, uint256 hoursLeft, uint256 minutesLeft, uint256 secondsLeft, uint256 currentBtcBlock))"];
+    
+    let chart;
+
+    function initChart() {
+        const ctx = document.getElementById('progressChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [0, 100],
+                    backgroundColor: ['#f7931a', '#333'],
+                    borderWidth: 0,
+                    circumference: 360,
+                    rotation: 0
+                }]
+            },
+            options: {
+                cutout: '85%',
+                plugins: { tooltip: { enabled: false }, legend: { display: false } }
+            }
+        });
+    }
+
+    async function updateData() {
+        try {
+            const provider = new ethers.JsonRpcProvider(RPC_URL);
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+            const data = await contract.getFormattedCountdown();
+
+            const current = Number(data.currentBtcBlock);
+            const progress = ((current - START_BLOCK) / (TARGET_BLOCK - START_BLOCK)) * 100;
+
+            // Aktualizacja UI
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+            document.getElementById('days').innerText = data.daysLeft;
+            document.getElementById('hours').innerText = data.hoursLeft;
+            document.getElementById('mins').innerText = data.minutesLeft;
+            document.getElementById('secs').innerText = data.secondsLeft;
+            document.getElementById('currentBlock').innerText = current.toLocaleString();
+            document.getElementById('percentText').innerText = progress.toFixed(1) + "%";
+
+            // Aktualizacja Wykresu
+            if(!chart) initChart();
+            chart.data.datasets[0].data = [progress, 100 - progress];
+            chart.update();
+
+        } catch (e) {
+            document.getElementById('loader').innerText = "Błąd RPC!";
+        }
+    }
+
+    updateData();
+    setInterval(updateData, 60000); // Odświeżaj co minutę
+</script>
+
+</body>
+</html>
