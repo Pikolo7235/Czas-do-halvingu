@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC Halving Countdown</title>
+    <script src="https://cloudflare.com"></script>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background-color: #1e1e1e;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            border: 1px solid #f7931a;
+            max-width: 400px;
+        }
+        h1 { color: #f7931a; margin-bottom: 10px; }
+        .countdown {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .unit { font-size: 0.8rem; color: #aaa; text-transform: uppercase; }
+        .block-info { color: #888; font-size: 0.9rem; margin-top: 20px; }
+        #loading { color: #f7931a; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>BTC Halving 2028</h1>
+    <div id="loader">Łączenie z blockchainem...</div>
+    
+    <div id="content" style="display: none;">
+        <div class="countdown">
+            <div><div id="days">0</div><div class="unit">Dni</div></div>
+            <div><div id="hours">0</div><div class="unit">Godz</div></div>
+            <div><div id="mins">0</div><div class="unit">Min</div></div>
+            <div><div id="secs">0</div><div class="unit">Sek</div></div>
+        </div>
+        <div class="block-info">
+            Aktualny blok BTC: <span id="currentBlock">---</span><br>
+            Cel: 1,050,000
+        </div>
+    </div>
+</div>
+
+<script>
+    // KONFIGURACJA
+    const CONTRACT_ADDRESS = "ADRES_TWOJEGO_KONTRAKTU"; 
+    const RPC_URL = "https://alchemy.com"; // Musisz podać własny URL
+
+    const ABI = [
+        "function getFormattedCountdown() view returns (tuple(uint256 totalSeconds, uint256 daysLeft, uint256 hoursLeft, uint256 minutesLeft, uint256 secondsLeft, uint256 currentBtcBlock))"
+    ];
+
+    async function updateCountdown() {
+        try {
+            const provider = new ethers.JsonRpcProvider(RPC_URL);
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+
+            const data = await contract.getFormattedCountdown();
+
+            // Ukryj loader, pokaż treść
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+
+            // Przypisz wartości
+            document.getElementById('days').innerText = data.daysLeft;
+            document.getElementById('hours').innerText = data.hoursLeft;
+            document.getElementById('mins').innerText = data.minutesLeft;
+            document.getElementById('secs').innerText = data.secondsLeft;
+            document.getElementById('currentBlock').innerText = data.currentBtcBlock.toLocaleString();
+
+        } catch (error) {
+            console.error(error);
+            document.getElementById('loader').innerText = "Błąd połączenia. Sprawdź konfigurację RPC.";
+        }
+    }
+
+    // Odświeżaj co 30 sekund (nie za często, by nie blokować darmowego RPC)
+    updateCountdown();
+    setInterval(updateCountdown, 30000);
+</script>
+
+</body>
+</html>
