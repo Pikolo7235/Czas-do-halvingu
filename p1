@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface AggregatorV3Interface {
+    function latestRoundData() external view returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    );
+}
+
+contract RealBTCHalvingCountdown {
+    AggregatorV3Interface internal blockHeightFeed;
+
+    uint256 public constant HALVING_BLOCK = 1050000; 
+    uint256 public constant AVG_BLOCK_TIME = 600;
+    uint256 public constant HEARTBEAT_THRESHOLD = 7200; 
+
+    // Struktura ułatwiająca pracę z frontendem
+    struct Countdown {
+        uint256 totalSeconds;
+        uint256 daysLeft;
+        uint256 hoursLeft;
+        uint256 minutesLeft;
+        uint256 secondsLeft;
+        uint256 currentBtcBlock;
+    }
+
+    constructor(address _feedAddress) {
+        blockHeightFeed = AggregatorV3Interface(_feedAddress);
+    }
+
+    function getBtcBlockHeight() public view returns (uint256) {
+        (, int256 height, , uint256 updatedAt, ) = blockHeightFeed.latestRoundData();
+        require(height > 0, "Blad danych: Wysokosc bloku ujemna");
+        require(block.timestamp - updatedAt <= HEARTBEAT_THRESHOLD, "Blad danych: Odczyt jest zbyt stary");
+        return uint256(height);
+    }
+
+    /**
+     * @dev Zwraca wszystkie dane odliczania w jednej strukturze.
+     */
+    function getFormattedCountdown() public view returns (Countdown memory) {
+        uint256 currentBlock = getBtcBlockHeight();
+        uint256 totalSeconds = 0;
+
+        if (currentBlock < HALVING_BLOCK) {
+            totalSeconds = (HALVING_BLOCK - currentBlock) * AVG_BLOCK_TIME;
+        }
+
+        return Countdown({
+            totalSeconds: totalSeconds,
+            daysLeft: totalSeconds / 1 days,
+            hoursLeft: (totalSeconds % 1 days) / 1 hours,
+            minutesLeft: (totalSeconds % 1 hours) / 1 minutes,
+            secondsLeft: totalSeconds % 1 minutes,
+            currentBtcBlock: currentBlock
+        });
+    }
+
+    // Pozostałe funkcje pomocnicze (opcjonalne, jeśli używasz getFormattedCountdown)
+    function getSecondsRemaining() public view returns (uint256) {
+        uint256 currentBlock = getBtcBlockHeight();
+        return currentBlock >= HALVING_BLOCK ? 0 : (HALVING_BLOCK - currentBlock) * AVG_BLOCK_TIME;
+    }
+}
